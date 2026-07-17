@@ -1,1 +1,5 @@
+# Core dependency
+torch>=2.6,<3.0
 
+# Test dependency
+pytest>=8.0,<10.0
