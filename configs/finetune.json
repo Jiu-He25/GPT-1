@@ -1,1 +1,19 @@
-
+{
+  "model_config_path": "configs/model.json",
+  "pretrained_checkpoint_path": "artifacts/checkpoints/latest.pt",
+  "train_data_path": "data/processed/finetune_train.jsonl",
+  "validation_data_path": "data/processed/finetune_validation.jsonl",
+  "output_dir": "artifacts/checkpoints",
+  "task_type": "classification",
+  "num_labels": 2,
+  "classification_dropout": 0.1,
+  "auxiliary_loss_weight": 0.5,
+  "batch_size": 8,
+  "learning_rate": 0.0000625,
+  "weight_decay": 0.01,
+  "num_epochs": 3,
+  "max_grad_norm": 1.0,
+  "num_workers": 0,
+  "seed": 42,
+  "precision": "fp32"
+}

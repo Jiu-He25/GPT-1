@@ -187,3 +187,99 @@ class PretrainConfig:
             return cls(**data)
         except TypeError as error:
             raise ValueError(f"配置文件中的参数不匹配: {error}") from error
+
+@dataclass
+class FinetuneConfig:
+    """保存GPT模型的微调参数"""
+
+    model_config_path: str = "configs/model.json"
+    pretrained_checkpoint_path: str = "artifacts/pretrain/latest.pt"
+    train_data_path: str = "data/processed/finetune_train.jsonl"
+    validation_data_path: str = "data/processed/finetune_validation.jsonl"
+    output_dir: str = "artifacts/checkpoints"
+
+    task_type: str = "classification"
+    num_labels: int = 2
+    classification_dropout: float = 0.1
+    auxiliary_loss_weight: float = 0.5
+
+    batch_size: int = 8
+    learning_rate: float = 0.0000625
+    weight_decay: float = 0.01
+    num_epochs: int = 3
+    max_grad_norm: float = 1.0
+
+    num_workers: int = 0
+    seed: int = 42
+    precision: str = "fp32"
+
+    def __post_init__(self) -> None:
+        """在初始化后验证参数的有效性"""
+        self.validate()
+
+    def validate(self) -> None:
+        """验证微调参数的有效性"""
+        positive_integer_fields = (
+            "num_labels",
+            "batch_size",
+            "num_epochs",
+        )
+        for field in positive_integer_fields:
+            value = getattr(self, field)
+
+            if not isinstance(value, int) or value <= 0:
+                raise ValueError(f"{field}必须是正整数, 当前为 {value}")
+            
+        if type(self.seed) is not int:
+            raise ValueError(f"seed必须是整数, 当前为 {self.seed}")
+        
+        if type(self.num_workers) is not int or self.num_workers < 0:
+            raise ValueError(f"num_workers必须是非负整数, 当前为 {self.num_workers}")
+        
+        if self.task_type != "classification":
+            raise ValueError(f"task_type必须是'classification', 当前为 {self.task_type}")
+        
+        if self.classification_dropout < 0.0 or self.classification_dropout >= 1.0:
+            raise ValueError(f"classification_dropout必须是介于0和1之间的浮点数, 当前为 {self.classification_dropout}")
+        
+        if self.auxiliary_loss_weight < 0:
+            raise ValueError(f"auxiliary_loss_weight必须是非负浮点数, 当前为 {self.auxiliary_loss_weight}")
+        
+        if self.learning_rate <= 0:
+            raise ValueError(f"learning_rate必须是正浮点数, 当前为 {self.learning_rate}")
+        
+        if self.weight_decay < 0:
+            raise ValueError(f"weight_decay必须是非负浮点数, 当前为 {self.weight_decay}")
+        
+        if self.max_grad_norm <= 0:
+            raise ValueError(f"max_grad_norm必须是正浮点数, 当前为 {self.max_grad_norm}")
+        
+        valid_precisions = ("fp32", "fp16", "bf16")
+
+        if self.precision not in valid_precisions:
+            raise ValueError(f"precision必须是以下之一: {valid_precisions}, 当前为 {self.precision}")
+        
+    @classmethod
+    def from_json(
+        cls,
+        path: Union[str, Path],
+    ) -> "FinetuneConfig":
+        """从JSON文件加载微调配置"""
+        path = Path(path)
+        if not path.is_file():
+            raise FileNotFoundError(f"配置文件未找到: {path}")
+        
+        with path.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        if not isinstance(data, dict):
+            raise ValueError(f"配置文件必须包含一个JSON对象, 当前为 {type(data)}")
+        
+        try:
+            return cls(**data)
+        except TypeError as error:
+            raise ValueError(f"配置文件中的参数不匹配: {error}") from error
+        
+    def to_dict(self) -> Dict[str, Any]:
+        """将微调配置转换为字典"""
+        return asdict(self)
