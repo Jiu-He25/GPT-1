@@ -90,3 +90,100 @@ class ModelConfig:
                 indent=2,
                 ensure_ascii=False
             )
+
+@dataclass
+class PretrainConfig:
+    """保存GPT模型的预训练参数"""
+
+    model_config_path: str = "configs/model.json"
+    train_data_path: str = "data/processed/train.bin"
+    validation_data_path: str = "data/processed/validation.bin"
+    output_dir: str = "artifacts/pretrain"
+
+    batch_size: int = 8
+    gradient_accumulation_steps: int = 4
+
+    learning_rate: float = 0.00025
+    weight_decay: float = 0.01
+    warmup_steps: int = 100
+    max_steps: int = 5000
+    max_grad_norm: float = 1.0
+
+    log_interval: int = 10
+    eval_interval: int = 100
+    save_interval: int = 500
+
+    num_workers: int = 0
+    seed: int = 42
+    precision: str = "fp32"
+
+    def __post_init__(self) -> None:
+        """在初始化后验证参数的有效性"""
+        self.validate()
+
+    def validate(self) -> None:
+        """验证预训练参数的有效性"""
+        positive_integer_fields = (
+            "batch_size",
+            "gradient_accumulation_steps",
+            "max_steps",
+            "log_interval",
+            "eval_interval",
+            "save_interval",
+        )
+        for field in positive_integer_fields:
+            value = getattr(self, field)
+
+            if not isinstance(value, int) or value <= 0:
+                raise ValueError(f"{field}必须是正整数, 当前为 {value}")
+            
+        non_negative_float_fields = (
+            "warmup_steps",
+            "num_workers",
+        )
+
+        for field in non_negative_float_fields:
+            value = getattr(self, field)
+
+            if not isinstance(value, int) or value < 0:
+                raise ValueError(f"{field}必须是非负整数, 当前为 {value}")
+            
+        if type(self.seed) is not int:
+            raise ValueError(f"seed必须是整数, 当前为 {self.seed}")
+        
+        if self.warmup_steps > self.max_steps:
+            raise ValueError(f"warmup_steps不能大于max_steps, 当前为 warmup_steps={self.warmup_steps}, max_steps={self.max_steps}")
+        
+        if self.learning_rate <= 0:
+            raise ValueError(f"learning_rate必须是正浮点数, 当前为 {self.learning_rate}")
+        
+        if self.weight_decay < 0:
+            raise ValueError(f"weight_decay必须是非负浮点数, 当前为 {self.weight_decay}")
+        
+        if self.max_grad_norm <= 0:
+            raise ValueError(f"max_grad_norm必须是正浮点数, 当前为 {self.max_grad_norm}")
+        
+        valid_precisions = ("fp32", "fp16", "bf16")
+
+        if self.precision not in valid_precisions:
+            raise ValueError(f"precision必须是以下之一: {valid_precisions}, 当前为 {self.precision}")
+    @classmethod
+    def from_json(
+        cls,
+        path: Union[str, Path],
+    ) -> "PretrainConfig":
+        """从JSON文件加载预训练配置"""
+        path = Path(path)
+        if not path.is_file():
+            raise FileNotFoundError(f"配置文件未找到: {path}")
+        
+        with path.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        if not isinstance(data, dict):
+            raise ValueError(f"配置文件必须包含一个JSON对象, 当前为 {type(data)}")
+        
+        try:
+            return cls(**data)
+        except TypeError as error:
+            raise ValueError(f"配置文件中的参数不匹配: {error}") from error
