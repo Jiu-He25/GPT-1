@@ -35,14 +35,20 @@ class ModelConfig:
         )
         for field in positive_integer_fields:
             value = getattr(self, field)
-            if not isinstance(value, int) or value <= 0:
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
                 raise ValueError(f"{field}必须是正整数, 当前为 {value}")
             
         if self.hidden_size % self.num_heads != 0:
             raise ValueError(f"hidden_size必须能被num_heads整除, 当前为 hidden_size={self.hidden_size}, num_heads={self.num_heads}")
         
-        if not isinstance(self.dropout, float) or not (0.0 <= self.dropout < 1.0):
-            raise ValueError(f"dropout必须是介于0和1之间的浮点数, 当前为 {self.dropout}")
+        if (
+            isinstance(self.dropout, bool)
+            or not isinstance(self.dropout, (int, float))
+            or not 0.0 <= self.dropout < 1.0
+        ):
+            raise ValueError(
+                f"dropout必须是介于0和1之间的数值, 当前为 {self.dropout}"
+            )
         
         if not isinstance(self.layer_norm_epsilon, float) or self.layer_norm_epsilon <= 0:
             raise ValueError(f"layer_norm_epsilon必须是正浮点数, 当前为 {self.layer_norm_epsilon}")
@@ -134,7 +140,7 @@ class PretrainConfig:
         for field in positive_integer_fields:
             value = getattr(self, field)
 
-            if not isinstance(value, int) or value <= 0:
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
                 raise ValueError(f"{field}必须是正整数, 当前为 {value}")
             
         non_negative_float_fields = (
@@ -227,7 +233,7 @@ class FinetuneConfig:
         for field in positive_integer_fields:
             value = getattr(self, field)
 
-            if not isinstance(value, int) or value <= 0:
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
                 raise ValueError(f"{field}必须是正整数, 当前为 {value}")
             
         if type(self.seed) is not int:
@@ -239,9 +245,18 @@ class FinetuneConfig:
         if self.task_type != "classification":
             raise ValueError(f"task_type必须是'classification', 当前为 {self.task_type}")
         
-        if self.classification_dropout < 0.0 or self.classification_dropout >= 1.0:
-            raise ValueError(f"classification_dropout必须是介于0和1之间的浮点数, 当前为 {self.classification_dropout}")
-        
+        if (
+            isinstance(self.classification_dropout, bool)
+            or not isinstance(
+                self.classification_dropout,
+                (int, float),
+            )
+            or not 0.0 <= self.classification_dropout < 1.0
+        ):
+            raise ValueError(
+                "classification_dropout必须是介于0和1之间的数值, "
+                f"当前为 {self.classification_dropout}"
+            )     
         if self.auxiliary_loss_weight < 0:
             raise ValueError(f"auxiliary_loss_weight必须是非负浮点数, 当前为 {self.auxiliary_loss_weight}")
         
