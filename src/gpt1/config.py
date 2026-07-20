@@ -193,6 +193,10 @@ class PretrainConfig:
             return cls(**data)
         except TypeError as error:
             raise ValueError(f"配置文件中的参数不匹配: {error}") from error
+        
+    def to_dict(self) -> Dict[str, Any]:
+        """将预训练配置转换为字典"""
+        return asdict(self)
 
 @dataclass
 class FinetuneConfig:
