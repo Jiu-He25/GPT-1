@@ -2,8 +2,9 @@ import json
 from pathlib import Path
 from typing import Dict, List, Union, Iterable
 
+TOKENIZER_TYPE = "character"
 
-SPETIAL_TOKENS = (
+SPECIAL_TOKENS = (
     "<pad>",
     "<unk>",
     "<bos>",
@@ -43,12 +44,12 @@ class CharacterTokenizer:
         if set(token_ids) != expected_ids:
             raise ValueError("词表中的 Token ID 必须是连续的整数，从 0 开始。")
         
-        for expected_id, sepcial_token in enumerate(SPETIAL_TOKENS):
-            actual_id = self.token_to_id.get(sepcial_token)
+        for expected_id, special_token in enumerate(SPECIAL_TOKENS):
+            actual_id = self.token_to_id.get(special_token)
 
             if actual_id != expected_id:
                 raise ValueError(
-                    f"特殊 Token '{sepcial_token}' 的 ID 必须是 {expected_id}，"
+                    f"特殊 Token '{special_token}' 的 ID 必须是 {expected_id}，"
                     f"但实际为 {actual_id}。"
                     )
     @classmethod
@@ -67,7 +68,7 @@ class CharacterTokenizer:
 
         token_to_id = {
             token: idx
-            for idx, token in enumerate(SPETIAL_TOKENS)
+            for idx, token in enumerate(SPECIAL_TOKENS)
         }
 
         for character in sorted(character):
@@ -141,7 +142,7 @@ class CharacterTokenizer:
             
             token = self.id_to_token.get(token_id, "<unk>")
 
-            if skip_special_tokens and token in SPETIAL_TOKENS:
+            if skip_special_tokens and token in SPECIAL_TOKENS:
                 continue
 
             tokens.append(token)
@@ -157,7 +158,7 @@ class CharacterTokenizer:
         path.parent.mkdir(parents=True, exist_ok=True)
 
         data = {
-            "tokenizer_type": "CharacterTokenizer",
+            "tokenizer_type": TOKENIZER_TYPE,
             "token_to_id": self.token_to_id,
         }
 
@@ -181,7 +182,7 @@ class CharacterTokenizer:
         if not isinstance(data, dict):
             raise ValueError(f"文件 '{path}' 的内容不是有效的 JSON 对象。")
         
-        if data.get("tokenizer_type") != "character":
+        if data.get("tokenizer_type") != TOKENIZER_TYPE:
             raise ValueError("这不是字符级分词器文件")
 
         token_to_id = data.get("token_to_id")
