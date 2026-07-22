@@ -1,0 +1,17 @@
+* text=auto eol=lf
+
+# Windows command scripts require CRLF line endings.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Common binary artifacts must not be line-ending normalized.
+*.bin binary
+*.ckpt binary
+*.gif binary
+*.jpeg binary
+*.jpg binary
+*.npy binary
+*.npz binary
+*.png binary
+*.pt binary
+*.pth binary

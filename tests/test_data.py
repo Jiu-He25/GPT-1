@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from gpt1.data import LanguageModelDataset
+from gpt1.data import LanguageModelDataset, build_dataloader
 
 
 def test_dataset_length_uses_complete_sequences() -> None:
@@ -192,3 +192,232 @@ def test_invalid_sample_index_is_rejected(
 
     with pytest.raises(IndexError):
         dataset[index]
+
+def test_dataloader_builds_expected_batch() -> None:
+    dataset = LanguageModelDataset(
+        token_ids=list(range(25)),
+        seq_len=4,
+    )
+    dataloader = build_dataloader(
+        dataset=dataset,
+        batch_size=2,
+        shuffle=False,
+    )
+
+    batch = next(iter(dataloader))
+
+    assert set(batch) == {"input_ids", "labels"}
+    assert batch["input_ids"].shape == (2, 4)
+    assert batch["labels"].shape == (2, 4)
+
+    assert torch.equal(
+        batch["input_ids"],
+        torch.tensor(
+            [
+                [0, 1, 2, 3],
+                [4, 5, 6, 7],
+            ]
+        ),
+    )
+    assert torch.equal(
+        batch["labels"],
+        torch.tensor(
+            [
+                [1, 2, 3, 4],
+                [5, 6, 7, 8],
+            ]
+        ),
+    )
+
+
+def test_dataloader_preserves_order_without_shuffle() -> None:
+    dataset = LanguageModelDataset(
+        token_ids=list(range(25)),
+        seq_len=4,
+    )
+    dataloader = build_dataloader(
+        dataset=dataset,
+        batch_size=2,
+        shuffle=False,
+    )
+
+    sample_starts = torch.cat(
+        [
+            batch["input_ids"][:, 0]
+            for batch in dataloader
+        ]
+    )
+
+    assert sample_starts.tolist() == [
+        0,
+        4,
+        8,
+        12,
+        16,
+        20,
+    ]
+
+
+def test_dataloader_shuffle_is_reproducible() -> None:
+    dataset = LanguageModelDataset(
+        token_ids=list(range(41)),
+        seq_len=4,
+    )
+
+    first_loader = build_dataloader(
+        dataset=dataset,
+        batch_size=3,
+        shuffle=True,
+        seed=7,
+    )
+    second_loader = build_dataloader(
+        dataset=dataset,
+        batch_size=3,
+        shuffle=True,
+        seed=7,
+    )
+
+    first_order = torch.cat(
+        [
+            batch["input_ids"][:, 0]
+            for batch in first_loader
+        ]
+    )
+    second_order = torch.cat(
+        [
+            batch["input_ids"][:, 0]
+            for batch in second_loader
+        ]
+    )
+
+    assert torch.equal(first_order, second_order)
+
+
+def test_dataloader_can_drop_incomplete_batch() -> None:
+    dataset = LanguageModelDataset(
+        token_ids=list(range(21)),
+        seq_len=4,
+    )
+
+    complete_loader = build_dataloader(
+        dataset=dataset,
+        batch_size=2,
+        shuffle=False,
+        drop_last=False,
+    )
+    dropped_loader = build_dataloader(
+        dataset=dataset,
+        batch_size=2,
+        shuffle=False,
+        drop_last=True,
+    )
+
+    assert len(dataset) == 5
+    assert len(complete_loader) == 3
+    assert len(dropped_loader) == 2
+
+    loaded_sample_count = sum(
+        batch["input_ids"].shape[0]
+        for batch in dropped_loader
+    )
+
+    assert loaded_sample_count == 4
+
+
+@pytest.mark.parametrize(
+    ("batch_size", "expected_exception"),
+    [
+        (0, ValueError),
+        (-1, ValueError),
+        (True, TypeError),
+        (1.5, TypeError),
+    ],
+)
+def test_invalid_batch_size_is_rejected(
+    batch_size: object,
+    expected_exception: type[Exception],
+) -> None:
+    dataset = LanguageModelDataset(
+        token_ids=list(range(9)),
+        seq_len=4,
+    )
+
+    with pytest.raises(expected_exception):
+        build_dataloader(
+            dataset=dataset,
+            batch_size=batch_size,
+        )
+
+
+@pytest.mark.parametrize(
+    ("num_workers", "expected_exception"),
+    [
+        (-1, ValueError),
+        (True, TypeError),
+        (1.5, TypeError),
+    ],
+)
+def test_invalid_num_workers_is_rejected(
+    num_workers: object,
+    expected_exception: type[Exception],
+) -> None:
+    dataset = LanguageModelDataset(
+        token_ids=list(range(9)),
+        seq_len=4,
+    )
+
+    with pytest.raises(expected_exception):
+        build_dataloader(
+            dataset=dataset,
+            batch_size=2,
+            num_workers=num_workers,
+        )
+
+
+@pytest.mark.parametrize(
+    "seed",
+    [
+        True,
+        1.5,
+        "42",
+    ],
+)
+def test_invalid_seed_is_rejected(
+    seed: object,
+) -> None:
+    dataset = LanguageModelDataset(
+        token_ids=list(range(9)),
+        seq_len=4,
+    )
+
+    with pytest.raises(TypeError):
+        build_dataloader(
+            dataset=dataset,
+            batch_size=2,
+            seed=seed,
+        )
+
+
+@pytest.mark.parametrize(
+    ("field_name", "value"),
+    [
+        ("shuffle", 1),
+        ("drop_last", 0),
+        ("pin_memory", "yes"),
+    ],
+)
+def test_dataloader_boolean_options_are_validated(
+    field_name: str,
+    value: object,
+) -> None:
+    dataset = LanguageModelDataset(
+        token_ids=list(range(9)),
+        seq_len=4,
+    )
+
+    with pytest.raises(TypeError, match=field_name):
+        build_dataloader(
+            dataset=dataset,
+            batch_size=2,
+            **{field_name: value},
+        )
